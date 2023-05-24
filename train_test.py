@@ -1,0 +1,97 @@
+import numpy as np
+from configuration import printt
+from model import Weight_Cross_Entropy
+import tensorflow as tf
+import os
+import pdb
+
+
+class TrainTest:
+    def __init__(self, results_log, gcn_layer_num, results_processor=None, epochs=200, batch_size=256):
+        self.results_processor = results_processor
+        self.gcn_layer_num = gcn_layer_num
+        self.results_log = results_log
+        self.epochs = epochs
+        self.batch_size = batch_size
+
+    def fit_model(self, data, model, cerition, optimizer):
+        # 通过指定数量的epoch迭代小批量训练模型
+        """
+        trains model by iterating minibatches for specified number of epochs
+        """
+        # 拟合模型
+        printt("Fitting Model")
+        first_experiment = True
+        curRes = 0.
+        # train for specified number of epochs
+        for epoch in range(1, self.epochs + 1):
+            self.train_epoch(data["train"], model, self.batch_size, cerition, optimizer)
+        # calculate train and test metrics
+            if epoch >= 100:
+                headers, result = self.results_processor.process_results(data, model, "epoch_" + str(epoch))
+                # save model
+                # save_path = os.path.join(os.path.dirname(self.results_log), "model", "multihead")
+                # if not os.path.exists(save_path):
+                #     os.mkdir(save_path)
+                # if result[7] > curRes:
+                #     curRes = result[7]
+                #     model.save_weights(os.path.join(save_path, "{:}.weights".format(curRes)))
+
+                self.results_processor.reset()
+
+                # write headers to file if haven't already
+                if first_experiment:
+                    with open(self.results_log, 'a') as f:
+                        f.write("{}\n".format(",".join(["layer", "epoch"] + headers)))
+                    first_experiment = False
+                # write results to file
+                with open(self.results_log, 'a') as f:
+                    f.write("{}, {}, {}\n".format(self.gcn_layer_num, epoch, ",".join([str(r) for r in result])))
+        # model.close()
+        return headers, result
+
+
+
+    def train_epoch(self, data, model, minibatch_size, cerition, optimizer, dropout_keep_prob=0.5):
+        """
+        Trains model for one pass through training data, one protein at a time
+        Each protein is split into minibatches of paired examples.
+        Features for the entire protein is passed to model, but only a minibatch of examples are passed
+        """
+        prot_perm = np.random.permutation(len(data))# 随机排列函数
+        # pdb.set_trace()
+        # loop through each protein
+        sum_loss = 0.
+        n_batch = 0
+        for protein in prot_perm:
+            # extract just data for this protein 只提取这个蛋白质的数据
+            prot_data = data[protein]
+            # pdb.set_trace()
+            pair_examples = prot_data["label"]
+            n = len(pair_examples)
+            shuffle_indices = np.random.permutation(np.arange(n)).astype(int)# 转化为整形
+            # shuffle_indices = np.concatenate((shuffle_indices, shuffle_indices))
+            # loop through each minibatch
+            for i in range(int(n / minibatch_size)):
+                # extract data for this minibatch 针对此小批量数据提取数据
+                index = int(i * minibatch_size)
+                examples = pair_examples[shuffle_indices[index: index + minibatch_size]]
+                batch_examples = examples
+                labels = examples[:,2]
+
+                # train the model
+                # pdb.set_trace()
+                with tf.GradientTape() as tape:# TensorFlow 为自动微分提供了 tf.GradientTape API
+                    # squeeze()用来降维
+                    preds = model(prot_data['l_vertex'], prot_data['l_hood_indices'].squeeze(), prot_data['l_edge'], 
+                                    prot_data['r_vertex'], prot_data['r_hood_indices'].squeeze(), prot_data['r_edge'], 
+                                    batch_examples, True)
+                   
+                    loss = cerition(preds, labels)
+                grads = tape.gradient(loss, model.trainable_variables)
+                optimizer.apply_gradients(grads_and_vars=zip(grads, model.trainable_variables))
+
+                n_batch += 1
+                sum_loss += loss.numpy()
+        printt("epoch avg loss {:}".format(sum_loss / len(data)))
+
