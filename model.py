@@ -5,19 +5,19 @@ import pdb
 
 """ ======== Non Layers ========= """
 
-def initializer(init, shape):# 这是初始化一下变量
+def initializer(init, shape):
     if init == "zero":
-        return tf.zeros(shape, dtype=tf.float32)# 填充一个形状是shape的数据类型是float32的数据
+        return tf.zeros(shape, dtype=tf.float32)
     elif init == "he":
 
-        fan_in = np.prod(shape[0:-1])# 数据乘法
+        fan_in = np.prod(shape[0:-1])
         std = 1 / np.sqrt(fan_in)
         return tf.random.uniform(shape, minval=-std, maxval=std, dtype=tf.float32)
-# tf.random.uniform：从均匀分布中输出随机值。生成的值在该[minval, maxval)范围内遵循均匀分布
 
 
 
-class GCN_NODE_WEIGHT(tf.keras.Model):# 图卷积节点权重
+
+class GCN_NODE_WEIGHT(tf.keras.Model):
     def __init__(self, in_dims, out_dims):
         super().__init__()
         self.Wc = tf.Variable(initializer("he", (in_dims, out_dims)), trainable=True) # (in_dims, out_dims)
@@ -25,16 +25,7 @@ class GCN_NODE_WEIGHT(tf.keras.Model):# 图卷积节点权重
         self.We = tf.Variable(initializer("he", (2, out_dims)), trainable=True) # (2, out_dims)
         self.q = tf.Variable(initializer("he", (out_dims, 1)), trainable=True)
         self.b = tf.Variable(initializer("zero", (out_dims,)), trainable=True)
-# trainable：可训练的
 
-# tf.Variable:
-# 为了区分需要计算梯度信息的张量与不需要计算梯度信息的张量，
-# TensorFlow 增加了一种专门的数据类型来支持梯度信息的记录：tf.Variable。
-# tf.Variable 类型在普通的张量类型基础上添加了 name，trainable 等属性来支持计算图的构建。
-# 由于梯度运算会消耗大量的计算资源，而且会自动更新相关参数
-# 对于不需要的优化的张量，如神经网络的输入X，不需要通过 tf.Variable 封装；
-# 相反，对于需要计算梯度并优化的张量，如神经网络层的W和b，
-# 需要通过 tf.Variable 包裹以便 TensorFlow 跟踪相关梯度信息
 
     def call(self, x, adj, edge, training):
         Zc = tf.matmul(x, self.Wc)
@@ -48,26 +39,18 @@ class GCN_NODE_WEIGHT(tf.keras.Model):# 图卷积节点权重
 
         # Zn = tf.divide(tf.reduce_sum(neighbor * weight, 1),
         #             tf.maximum(nh_sizes, tf.ones_like(nh_sizes))) # (in_dims, out_dims)
-        Zn = tf.reduce_sum(neighbor * weight, 1) # 一定方式计算张量中元素之和
+        Zn = tf.reduce_sum(neighbor * weight, 1) # 
         
-        h = tf.nn.relu(Zn + Zc+ self.b)# 使用relu激活函数
+        h = tf.nn.relu(Zn + Zc+ self.b)
         if training:
             h = tf.nn.dropout(h, 0.4)
-            # 每个神经元被丢弃的概率是0.4
-            # 在这里并不是真正被丢掉，而是在这一轮的训练中不更新这个神经元的权值，权值在这一轮训练被保留，下一轮训练可能又会被更新
 
         return h
 
-# tf.keras.Model:
-# tf.keras.Model类将定义好的网络结构封装入一个对象，用于训练、测试和预测
 
 
 
-class Dense(tf.keras.Model): # FC层在keras中叫做Dense层
-
-# 通过继承Model类进行实例化，
-# 需要定义自己的__init__并且在call方法中实现网络的前向传播结构
-# (即在这个方法中定义网络结构)。
+class Dense(tf.keras.Model): 
 
     def __init__(self, in_dims, out_dims, is_relu):
         super().__init__()
@@ -86,7 +69,7 @@ class Dense(tf.keras.Model): # FC层在keras中叫做Dense层
 
 
 
-class Sinkhorn(tf.keras.Model):#最优传输，用于W距离
+class Sinkhorn(tf.keras.Model):
     def __init__(self, d=256, max_iter=10, epsilon=1e-12, lamda=1.0):
         super().__init__()
         self.max_iter = max_iter
@@ -135,7 +118,7 @@ class Sinkhorn(tf.keras.Model):#最优传输，用于W距离
         return G * M
 
    
-class MultiHeadAttention(tf.keras.Model):# 多头注意力
+class MultiHeadAttention(tf.keras.Model):
     def __init__(self, hid_dim, n_heads=4):
         super(MultiHeadAttention, self).__init__()
         self.hid_dim = hid_dim
