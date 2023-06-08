@@ -15,11 +15,11 @@ class TrainTest:
         self.batch_size = batch_size
 
     def fit_model(self, data, model, cerition, optimizer):
-        # 通过指定数量的epoch迭代小批量训练模型
+     
         """
         trains model by iterating minibatches for specified number of epochs
         """
-        # 拟合模型
+        
         printt("Fitting Model")
         first_experiment = True
         curRes = 0.
@@ -58,22 +58,22 @@ class TrainTest:
         Each protein is split into minibatches of paired examples.
         Features for the entire protein is passed to model, but only a minibatch of examples are passed
         """
-        prot_perm = np.random.permutation(len(data))# 随机排列函数
+        prot_perm = np.random.permutation(len(data))
         # pdb.set_trace()
         # loop through each protein
         sum_loss = 0.
         n_batch = 0
         for protein in prot_perm:
-            # extract just data for this protein 只提取这个蛋白质的数据
+            # extract just data for this protein 
             prot_data = data[protein]
             # pdb.set_trace()
             pair_examples = prot_data["label"]
             n = len(pair_examples)
-            shuffle_indices = np.random.permutation(np.arange(n)).astype(int)# 转化为整形
+            shuffle_indices = np.random.permutation(np.arange(n)).astype(int)
             # shuffle_indices = np.concatenate((shuffle_indices, shuffle_indices))
             # loop through each minibatch
             for i in range(int(n / minibatch_size)):
-                # extract data for this minibatch 针对此小批量数据提取数据
+                # extract data for this minibatch
                 index = int(i * minibatch_size)
                 examples = pair_examples[shuffle_indices[index: index + minibatch_size]]
                 batch_examples = examples
@@ -81,8 +81,8 @@ class TrainTest:
 
                 # train the model
                 # pdb.set_trace()
-                with tf.GradientTape() as tape:# TensorFlow 为自动微分提供了 tf.GradientTape API
-                    # squeeze()用来降维
+                with tf.GradientTape() as tape:
+                    
                     preds = model(prot_data['l_vertex'], prot_data['l_hood_indices'].squeeze(), prot_data['l_edge'], 
                                     prot_data['r_vertex'], prot_data['r_hood_indices'].squeeze(), prot_data['r_edge'], 
                                     batch_examples, True)
